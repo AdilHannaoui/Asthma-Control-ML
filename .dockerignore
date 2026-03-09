@@ -1,0 +1,23 @@
+# Data — never include clinical data in the image
+data/
+
+# Notebooks — not needed at runtime
+notebooks/
+
+# Git
+.git
+.gitignore
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environments
+.env
+*.env
+
+# OS
+.DS_Store
+Thumbs.db
