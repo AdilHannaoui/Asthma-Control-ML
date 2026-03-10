@@ -56,7 +56,8 @@ Asthma-Control-ML/
 │       ├── 02_modeling.ipynb     # Training, SHAP analysis, tuning and calibration
 │       └── 03_inference.ipynb    # Inference pipeline demonstration
 │
-│   ├── predict.py                # Production-ready prediction script (CLI)
+│   ├── src/               
+│       └── predict.py     # Production-ready prediction script (CLI)
 │   └── README.md
 │
 ├── data/
@@ -92,7 +93,7 @@ docker build -t asthma-control-ml .
 
 **Standard:**
 ```bash
-python predict.py --input data/patients.csv --output predictions.csv --proba
+python Poor_Control_Prediction/src/predict.py --input data/patients.csv --output predictions.csv --proba
 ```
 
 **Docker:**
