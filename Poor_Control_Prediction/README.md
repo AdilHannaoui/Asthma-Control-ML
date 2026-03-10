@@ -93,7 +93,11 @@ docker build -t asthma-control-ml .
 
 **Standard:**
 ```bash
-python Poor_Control_Prediction/src/predict.py --input data/patients.csv --output predictions.csv --proba
+python Poor_Control_Prediction/src/predict.py \
+    --input data/patients.csv \
+    --output predictions.csv \
+    --models Poor_Control_Prediction/models/ \
+    --proba
 ```
 
 **Docker:**
