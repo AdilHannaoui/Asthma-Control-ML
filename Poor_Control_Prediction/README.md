@@ -50,14 +50,17 @@ Asthma-Control-ML/
 │       ├── model_calibrated.pkl  # XGBoost + calibration wrapper
 │       ├── model_tuned.pkl       # Tuned XGBoost classifier
 │       └── threshold.pkl         # Optimal decision threshold (recall ≥ 0.80)
+│
 │   ├── notebooks/
 │       ├── 01_EDA.ipynb          # Exploratory analysis, preprocessing and feature engineering
 │       ├── 02_modeling.ipynb     # Training, SHAP analysis, tuning and calibration
 │       └── 03_inference.ipynb    # Inference pipeline demonstration
+│
 │   ├── predict.py                # Production-ready prediction script (CLI)
 │   └── README.md
-│   ├── data/
-│       └── .gitkeep              # Data folder versioned without data (clinical records, not uploaded)
+│
+├── data/
+│   └── .gitkeep              # Data folder versioned without data (clinical records, not uploaded)
 ├── requirements.txt          # Python dependencies
 └── .gitignore
 ```
