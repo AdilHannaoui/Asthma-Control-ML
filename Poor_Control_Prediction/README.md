@@ -16,14 +16,14 @@ significant proportion of patients experience poor clinical control each year,
 leading to exacerbations, emergency visits and hospitalisations that are largely 
 preventable with timely intervention.
 
-This project builds a supervised ML model to **predict which patients will 
-experience poor asthma control in the following year**, enabling clinicians to 
-proactively prioritise follow-up before deterioration occurs.
+This project applies **time-to-event (survival) analysis** to characterise the clinical
+trajectory of severe asthma patients candidates for biological treatment, estimating
+when key events occur and which baseline factors are associated with them.
 
-The dataset covers asthmatic patients in Cantabria between 2018 and 2024 
-(304,483 patient-year records). Key variables include pneumology and allergy 
-follow-up, chronic comorbidities, treatment regimens, and biological markers 
-such as eosinophil levels and IgE.
+The dataset covers severe asthma patients in Cantabria candidates for biological treatment
+(Benralizumab or Tezepelumab), prospectively enrolled at the asthma unit with active and
+ongoing inclusion. Key variables include baseline clinical phenotype, pulmonary
+function, inflammatory biomarkers, comorbidities, and biological treatment records.
 
 
 ## Pipeline
@@ -32,12 +32,12 @@ The project follows a sequential pipeline from raw EHR data to production-ready 
 
 | Step | Notebook | Key decision |
 |------|----------|-------------|
-| **EDA & Preprocessing** | `01_EDA.ipynb` | Patient ID anonymisation, eosinophil/IgE consolidation into ordinal variables, temporal lag features with gap-aware handling |
-| **Modelling** | `02_modeling.ipynb` | Temporal train/val/test split (2018–2022 / 2023 / 2024), target encoding, XGBoost baseline |
-| **SHAP Analysis** | `02_modeling.ipynb` | Zero-importance feature removal, clinical interpretability of top predictors |
-| **Hyperparameter Tuning** | `02_modeling.ipynb` | Optuna with 150 + 100 zoom-in trials, GPU acceleration |
-| **Probability Calibration** | `02_modeling.ipynb` | Isotonic regression to correct score inflation from `scale_pos_weight` |
-| **Inference** | `03_inference.ipynb` / `predict.py` | Full pipeline encapsulated for production use |
+| **Preprocessing** | `00_preprocessing.ipynb` | Longitudinal-to-baseline collapse per patient, survival time variables built from raw visit records, binary/categorical encoding and median imputation |
+| **Time to Biological** | `01_time_to_biological.ipynb` | T0 = first asthma unit visit, event = first biological initiation, censored if no biological received |
+| **Time to Exacerbation** | `02_time_to_exacerbation.ipynb` | T0 = biological initiation, event = first visit with severe exacerbation after T0, extracted by iterating longitudinal visit records |
+| **Time to Hospitalisation** | `02_time_to_exacerbation.ipynb` | T0 = biological initiation, event = first visit with asthma-related hospitalisation after T0, secondary endpoint within the same notebook |
+| **Time to Biological Failure** | `03_time_to_biological_failure.ipynb` | T0 = biological initiation, event = biological withdrawal (`FechaRetirada_bio`), censored if still on treatment at last visit |
+|
 
 
 ## Repository Structure
