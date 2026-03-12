@@ -37,7 +37,6 @@ The project follows a sequential pipeline from raw EHR data to production-ready 
 | **Time to Exacerbation** | `02_time_to_exacerbation.ipynb` | T0 = biological initiation, event = first visit with severe exacerbation after T0, extracted by iterating longitudinal visit records |
 | **Time to Hospitalisation** | `02_time_to_exacerbation.ipynb` | T0 = biological initiation, event = first visit with asthma-related hospitalisation after T0, secondary endpoint within the same notebook |
 | **Time to Biological Failure** | `03_time_to_biological_failure.ipynb` | T0 = biological initiation, event = biological withdrawal (`FechaRetirada_bio`), censored if still on treatment at last visit |
-|
 
 
 ## Repository Structure
