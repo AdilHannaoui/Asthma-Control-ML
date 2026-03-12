@@ -43,27 +43,22 @@ The project follows a sequential pipeline from raw EHR data to production-ready 
 ## Repository Structure
 ```
 Asthma-Control-ML/
-├── Poor_Control_Prediction/
-│   ├── models/
-│       ├── encoders.pkl          # Target encoders, OHE and feature metadata
-│       ├── iso_reg.pkl           # Isotonic regression calibrator
-│       ├── model_calibrated.pkl  # XGBoost + calibration wrapper
-│       ├── model_tuned.pkl       # Tuned XGBoost classifier
-│       └── threshold.pkl         # Optimal decision threshold (recall ≥ 0.80)
-│
+├── Survival_Analysis/
 │   ├── notebooks/
-│       ├── 01_EDA.ipynb          # Exploratory analysis, preprocessing and feature engineering
-│       ├── 02_modeling.ipynb     # Training, SHAP analysis, tuning and calibration
-│       └── 03_inference.ipynb    # Inference pipeline demonstration
+│       ├── 00-preprocessing.ypinb                  # Data cleaning, encoding and survival time variable construction
+│       ├── 01_time_to_biological.ipynb             # Time from first asthma unit visit to biological initiation
+│       ├── 02_time_to_exacerbation.ipynb           # Time from biological initiation to exacerbation / hospitalisation
+│       └── 03_time_to_biological_failure.ipynb     # Time from biological initiation to treatment withdrawal
 │
-│   ├── src/               
-│       └── predict.py     # Production-ready prediction script (CLI)
+│   ├── plots/               
+│       └── *.png     # Kaplan-Meier curves and Cox forest plots
 │   └── README.md
 │
 ├── data/
 │   └── .gitkeep              # Data folder versioned without data (clinical records, not uploaded)
 ├── requirements.txt          # Python dependencies
 ├── environment.yml           # Python dependencies for conda environment
+├── Dockerfile                # Container for Poor Control prediction pipeline
 └── .gitignore
 ```
 
