@@ -1,12 +1,11 @@
-# Survival Analysis of Biological Treatment in Severe Asthma
+# Clinical Control Prediction in Asthmatic Patients
 
-Time-to-event analysis of key clinical outcomes in severe asthma patients
-candidates for biological treatment, based on a prospective real-world cohort
-from Cantabria, Spain.
+End-to-end ML pipeline for the annual prediction of poor asthma control
+based on real-world Electronic Health Record (EHR) data from a 7-year cohort.
 
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
-![lifelines](https://img.shields.io/badge/lifelines-0.30.0-blue)
-![scikit--learn](https://img.shields.io/badge/scikit--learn-1.6.1-F7931E)
+![XGBoost](https://img.shields.io/badge/XGBoost-3.2.0-orange)
+![scikit--learn](https://img.shields.io/badge/scikit--learn-1.8.0-F7931E)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 
@@ -17,14 +16,14 @@ significant proportion of patients experience poor clinical control each year,
 leading to exacerbations, emergency visits and hospitalisations that are largely 
 preventable with timely intervention.
 
-This project applies **time-to-event (survival) analysis** to characterise the clinical
-trajectory of severe asthma patients candidates for biological treatment, estimating
-when key events occur and which baseline factors are associated with them.
+This project builds a supervised ML model to **predict which patients will 
+experience poor asthma control in the following year**, enabling clinicians to 
+proactively prioritise follow-up before deterioration occurs.
 
-The dataset covers severe asthma patients in Cantabria candidates for biological treatment
-(Benralizumab or Tezepelumab), prospectively enrolled at the asthma unit with active and
-ongoing inclusion. Key variables include baseline clinical phenotype, pulmonary
-function, inflammatory biomarkers, comorbidities, and biological treatment records.
+The dataset covers asthmatic patients in Cantabria between 2018 and 2024 
+(304,483 patient-year records). Key variables include pneumology and allergy 
+follow-up, chronic comorbidities, treatment regimens, and biological markers 
+such as eosinophil levels and IgE.
 
 
 ## Pipeline
@@ -33,32 +32,38 @@ The project follows a sequential pipeline from raw EHR data to production-ready 
 
 | Step | Notebook | Key decision |
 |------|----------|-------------|
-| **Preprocessing** | `00_preprocessing.ipynb` | Longitudinal-to-baseline collapse per patient, survival time variables built from raw visit records, binary/categorical encoding and median imputation |
-| **Time to Biological** | `01_time_to_biological.ipynb` | T0 = first asthma unit visit, event = first biological initiation, censored if no biological received |
-| **Time to Exacerbation** | `02_time_to_exacerbation.ipynb` | T0 = biological initiation, event = first visit with severe exacerbation after T0, extracted by iterating longitudinal visit records |
-| **Time to Hospitalisation** | `02_time_to_exacerbation.ipynb` | T0 = biological initiation, event = first visit with asthma-related hospitalisation after T0, secondary endpoint within the same notebook |
-| **Time to Biological Failure** | `03_time_to_biological_failure.ipynb` | T0 = biological initiation, event = biological withdrawal (`FechaRetirada_bio`), censored if still on treatment at last visit |
+| **EDA & Preprocessing** | `01_EDA.ipynb` | Patient ID anonymisation, eosinophil/IgE consolidation into ordinal variables, temporal lag features with gap-aware handling |
+| **Modelling** | `02_modeling.ipynb` | Temporal train/val/test split (2018–2022 / 2023 / 2024), target encoding, XGBoost baseline |
+| **SHAP Analysis** | `02_modeling.ipynb` | Zero-importance feature removal, clinical interpretability of top predictors |
+| **Hyperparameter Tuning** | `02_modeling.ipynb` | Optuna with 150 + 100 zoom-in trials, GPU acceleration |
+| **Probability Calibration** | `02_modeling.ipynb` | Isotonic regression to correct score inflation from `scale_pos_weight` |
+| **Inference** | `03_inference.ipynb` / `predict.py` | Full pipeline encapsulated for production use |
 
 
 ## Repository Structure
 ```
 Asthma-Control-ML/
-├── Survival_Analysis/
-│   ├── notebooks/
-│       ├── 00-preprocessing.ypinb                  # Data cleaning, encoding and survival time variable construction
-│       ├── 01_time_to_biological.ipynb             # Time from first asthma unit visit to biological initiation
-│       ├── 02_time_to_exacerbation.ipynb           # Time from biological initiation to exacerbation / hospitalisation
-│       └── 03_time_to_biological_failure.ipynb     # Time from biological initiation to treatment withdrawal
+├── Poor_Control_Prediction/
+│   ├── models/
+│       ├── encoders.pkl          # Target encoders, OHE and feature metadata
+│       ├── iso_reg.pkl           # Isotonic regression calibrator
+│       ├── model_calibrated.pkl  # XGBoost + calibration wrapper
+│       ├── model_tuned.pkl       # Tuned XGBoost classifier
+│       └── threshold.pkl         # Optimal decision threshold (recall ≥ 0.80)
 │
-│   ├── plots/               
-│       └── *.png     # Kaplan-Meier curves and Cox forest plots
+│   ├── notebooks/
+│       ├── 01_EDA.ipynb          # Exploratory analysis, preprocessing and feature engineering
+│       ├── 02_modeling.ipynb     # Training, SHAP analysis, tuning and calibration
+│       └── 03_inference.ipynb    # Inference pipeline demonstration
+│
+│   ├── src/               
+│       └── predict.py     # Production-ready prediction script (CLI)
 │   └── README.md
 │
 ├── data/
 │   └── .gitkeep              # Data folder versioned without data (clinical records, not uploaded)
 ├── requirements.txt          # Python dependencies
 ├── environment.yml           # Python dependencies for conda environment
-├── Dockerfile                # Container for Poor Control prediction pipeline
 └── .gitignore
 ```
 
@@ -78,163 +83,98 @@ Or using pip:
 pip install -r requirements.txt
 ```
 
-### Running the analysis
+Or using Docker:
+```bash
+docker build -t asthma-control-ml .
+```
 
-Execute the notebooks in order from the `Survival_Analysis/notebooks/` directory:
 
-1. `00_preprocessing.ipynb` — prepare the dataset and build survival time variables
-2. `01_time_to_biological.ipynb` — time to first biological treatment
-3. `02_time_to_exacerbation.ipynb` — time to exacerbation and hospitalisation
-4. `03_time_to_biological_failure.ipynb` — time to biological treatment failure
+### Generate predictions
 
-> **Note:** All notebooks read from `data/data_clean.csv` generated by `00_preprocessing.ipynb`.
-> Raw data must be placed at `data/data.csv` before running the preprocessing step.
+**Standard:**
+```bash
+python Poor_Control_Prediction/src/predict.py \
+    --input data/patients.csv \
+    --output predictions.csv \
+    --models Poor_Control_Prediction/models/ \
+    --proba
+```
 
-### Input
+**Docker:**
+```bash
+docker run -v $(pwd)/data:/app/data asthma-control-ml \
+    --input data/patients.csv \
+    --output data/predictions.csv \
+    --proba
+```
+### Arguments
 
-| File | Description |
-|------|-------------|
-| `data/data.csv` | Raw longitudinal EHR data, one row per patient visit |
+| Argument | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `--input` | ✓ | — | Path to input CSV (processed, output of `01_EDA.ipynb`) |
+| `--output` | ✗ | `predictions.csv` | Path to write predictions |
+| `--models` | ✗ | `models/` | Path to models directory |
+| `--proba` | ✗ | `False` | Include calibrated probabilities in output |
 
 ### Output
 
-| File | Description |
-|------|-------------|
-| `data/data_clean.csv` | Cleaned dataset with one row per patient and precomputed survival time variables |
-| `plots/km_*.png` | Kaplan-Meier survival curves per analysis and stratification variable |
-| `plots/cox_*.png` | Cox proportional hazards forest plots per analysis |
+| Column | Description |
+|--------|-------------|
+| `poor_control_pred` | Binary prediction (0 = good control, 1 = poor control) |
+| `poor_control_proba` | Calibrated probability of poor control (only with `--proba`) |
 
 
 ## Clinical Context
 
-### Why these patients?
+### Why predict poor control?
 
-This cohort includes exclusively severe asthma patients who have initiated or 
-are candidates to initiate biological treatment with **Benralizumab or 
-Tezepelumab**. These patients are referred to the asthma unit primarily due to 
-dependence on systemic corticosteroids (OCS), recurrent severe exacerbations, 
-or asthma-related hospitalisations — representing the most complex end of the 
-asthma severity spectrum.
+Poor asthma control is defined as the occurrence of any of the following in a given year:
+- Oral corticosteroid (OCS) use
+- Magnesium sulphate use
+- ICU admission or asthma-related hospitalisation
+- AMR < 0.5 and/or SABA ≥ 12 dispensed inhalers
 
-### Why these three analyses?
+In the Cantabria cohort, **15.65% of patient-years meet this definition**, with a growing trend from 13.4% (2018) to 18.4% (2023–2024). Identifying these patients in advance allows clinicians to intervene before deterioration occurs.
 
-**Time to biological initiation (T0 = first asthma unit visit)** addresses how 
-long it takes from first specialist contact until the patient receives a 
-biological. If biological treatment proves highly effective, reducing this 
-interval becomes a clinical priority — knowing the current median time provides 
-the baseline needed to justify and measure any intervention aimed at shortening it.
+### Why recall over precision?
 
-**Time to exacerbation and hospitalisation (T0 = biological initiation)** 
-directly measures whether the biological is working. Since patients are referred 
-precisely because of exacerbations and OCS dependence, the rate and timing of 
-severe exacerbations after treatment start is the primary indicator of 
-therapeutic effectiveness.
+The model is optimised for **recall ≥ 0.80** on the positive class rather than overall accuracy, reflecting the asymmetric cost of each error type:
 
-**Time to biological failure (T0 = biological initiation)** captures treatment 
-durability — how long patients remain on their first biological before it is 
-withdrawn, and which baseline factors are associated with earlier failure.
+| Error type | Clinical consequence | Cost |
+|------------|---------------------|------|
+| False negative | Poor control goes undetected → A&E visit, hospitalisation | **High** |
+| False positive | Unnecessary follow-up visit | Low |
 
-### Kaplan-Meier vs Cox: why both?
+At the chosen threshold the model detects ~80% of poor-control patients, at the cost of ~35% precision among those flagged — an acceptable trade-off for an early-warning screening tool where the cost of missing a case far outweighs the cost of an extra visit.
 
-The Kaplan-Meier curves describe *when* events occur across the cohort and allow 
-visual comparison between patient subgroups (e.g. eosinophilic vs allergic T2 
-phenotype) via log-rank tests. The Cox proportional hazards model then asks 
-which variables have an *independent* effect on time to event once all other 
-factors are adjusted for simultaneously.
+### Probability calibration
 
-In the time-to-biological analysis, T2 phenotype shows significant separation 
-in the Kaplan-Meier curves but does not reach significance in the Cox model. 
-This is expected: phenotype is strongly correlated with inflammatory biomarkers 
-(eosinophils, FeNO) that are also included in the model. Once those are 
-accounted for, the phenotype label itself adds no independent predictive value — 
-the biological signal is carried by the markers, not the categorical label. This 
-is a finding in itself, not a contradiction between the two methods.
+XGBoost with `scale_pos_weight` tends to inflate raw probability scores. **Isotonic regression calibration** is applied to ensure that predicted probabilities are directly interpretable: a score of 0.30 means ~30% real risk of poor control. This is essential for clinical use, where clinicians interpret probability scores literally.
 
 
 ## Results
 
-### Cohort overview
+All metrics are reported on the **held-out test set (2024)**, which was not used at any point during model development or tuning.
 
-| | N | Events | Censored |
-|--|---|--------|----------|
-| Time to biological | 366 | 336 (91.8%) | 30 (8.2%) |
-| Time to exacerbation | 292 | 115 (39.4%) | 177 (60.6%) |
-| Time to hospitalisation | 292 | 39 (13.4%) | 253 (86.6%) |
-| Time to biological failure | 291 | 54 (18.6%) | 237 (81.4%) |
+### Baseline vs Tuned
 
-### Time to biological initiation
+| Metric | Baseline | Tuned |
+|--------|----------|-------|
+| ROC-AUC (val) | 0.8233 | 0.8241 |
+| PR-AUC (val) | 0.5551 | 0.5583 |
 
-**Median: 9.4 months** from first asthma unit visit to biological initiation (n=366, 91.8% received biological).
+### Validation vs Test
 
-Significant differences by log-rank test: T2 phenotype (p=0.002) and biological switch status (p=0.043). Sex, asthma onset age, OCS use and prior biological agent showed no significant separation.
+| Metric | Validation (2023) | Test (2024) |
+|--------|------------------|-------------|
+| ROC-AUC | 0.8241 | 0.8195 |
+| PR-AUC | 0.5583 | 0.5344 |
 
-| Subgroup | Median (months) |
-|----------|----------------|
-| Eosinophilic T2 | 12.2 |
-| Allergic T2 | 3.7 |
-| Naïve | 6.5 |
-| Switch | 19.9 |
-| With Bronchiectasis | 17.5 |
-| Without Bronchiectasis | 8.7 |
-| With Macrolides | 20.7 |
-| Without Macrolides | 6.5 |
+The minimal drop between validation and test (~0.005 ROC-AUC) indicates that the model generalises well across years despite the temporal drift in poor-control rates observed in the dataset.
 
-Cox model significant predictors (n=141 after missing imputation):
+### Classification report — Test set (threshold = 0.139, calibrated)
 
-| Variable | HR | 95% CI | p |
-|----------|----|--------|---|
-| Macrolides | 0.45 | 0.28–0.74 | 0.002 |
-| Bronchiectasis | 0.47 | 0.28–0.82 | 0.007 |
-| Osteoporosis | 0.53 | 0.29–0.96 | 0.037 |
-| Biological switch | 0.61 | 0.39–0.95 | 0.029 |
-| Age | 1.03 | 1.01–1.04 | 0.002 |
-| Former smoker | 1.80 | 1.14–2.84 | 0.012 |
-| Paranasal sinus CT | 2.30 | 1.26–4.19 | 0.007 |
-| Diabetes | 2.49 | 1.19–5.21 | 0.016 |
-
-> T2 phenotype shows significant KM separation (p=0.002) but does not reach significance in the adjusted Cox model, consistent with its effect being mediated by inflammatory biomarkers (eosinophils, FeNO) included in the model.
-
-### Time to severe exacerbation
-
-**Median: 14.5 months** from biological initiation to first severe exacerbation (39.4% of patients).
-
-The biological agent was the only significant stratification variable by log-rank test (p<0.001), with Tezepelumab showing a shorter time to exacerbation (12.0 months) than Benralizumab (23.8 months).
-
-Cox model significant predictors:
-
-| Variable | HR | 95% CI | p |
-|----------|----|--------|---|
-| Former smoker | 0.61 | 0.42–0.90 | 0.012 |
-| COPD | 2.37 | 1.26–4.45 | 0.008 |
-| LAMA | 2.42 | 1.02–5.75 | 0.046 |
-
-Proportional hazards assumption satisfied for all covariates.
-
-### Time to hospitalisation
-
-**Median: 101.2 months.** Only 13.4% of patients were hospitalised, reflecting the protective effect of biological treatment in this cohort. The median was not reached for most subgroups.
-
-The biological agent was the only significant stratification variable (p=0.020). Sex showed borderline significance in the hospitalisation model (p=0.035).
-
-Cox model significant predictor:
-
-| Variable | HR | 95% CI | p |
-|----------|----|--------|---|
-| BMI | 1.02 | 1.00–1.03 | 0.016 |
-
-Proportional hazards assumption satisfied for all covariates.
-
-### Time to biological failure
-
-**Median: 15.0 months** to biological withdrawal (18.6% of patients). Primary reason for withdrawal: therapeutic failure (33/54, 61%), adverse effects (6/54, 11%).
-
-No stratification variable reached significance by log-rank test (phenotype borderline: p=0.068).
-
-Cox model significant predictors:
-
-| Variable | HR | 95% CI | p |
-|----------|----|--------|---|
-| Bronchiectasis | 0.53 | 0.29–0.98 | 0.042 |
-| LAMA | 3.08 | 1.03–9.17 | 0.044 |
-
-Proportional hazards assumption satisfied for all covariates.
+| | Precision | Recall | F1 |
+|--|-----------|--------|-----|
+| Good control | 0.94 | 0.65 | 0.77 |
+| Poor control | 0.34 | 0.83 | 0.48 |
